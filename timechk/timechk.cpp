@@ -6,8 +6,8 @@
 #define STR_LENGTH 256
 #define DAT_LENGTH 100
 
-#define ERR_STRING "エラー：%s がありません。"
-#define USG_STRING "USAGE:timechk.exe <IP Address>"
+#define ERR_STRING "エラー：iniファイルがありません。\n"
+#define USG_STRING "USAGE:timechk.exe <IP Address>\n"
 
 // グローバル変数定義
 char Data[DAT_LENGTH][STR_LENGTH];
@@ -127,9 +127,11 @@ int get_end_time(char *data)
 int chktime(char *ip)
 {
 	char tgt_ip[STR_LENGTH];
+	char msg[STR_LENGTH];
 	int i = 0,now_min;
 
 	now_min = now();
+	msg[0] = '\0';
 	while (strlen(Data[i]) > 0) {
 		get_ip_address(tgt_ip, Data[i]);
 		if (strcmp(tgt_ip, ip) == 0) {
@@ -173,15 +175,20 @@ int main(int argc, char** argv)
 		char path[STR_LENGTH];
 		get_ini_name(path, argv[0]);
 		if (load_data(path)) {
-			fprintf(stderr, ERR_STRING, path);
+			printf(ERR_STRING);
 		}
 		else {
-			debug_print();
+			//debug_print();
 			ret = chktime(argv[1]);
+			if (ret) {
+				char tmp[STR_LENGTH];
+				min2str(tmp, now());
+				printf("現在時刻: %s IP: %s の指定時間帯です。", tmp,argv[1]);
+			}
 		}
 	}
 	else {
-		fprintf(stderr, USG_STRING);
+		printf(USG_STRING);
 	}
 	return ret;
 }
