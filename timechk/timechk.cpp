@@ -59,7 +59,7 @@ void get_basename(char *path,const char *src)
 		r = s;
 		s = strtok_s(NULL, "\\", &p);
 	}
-	strtok_s(r, ".", &p);
+	*strchr(r, '.') = '\0';
 	strcpy_s(path, STR_LENGTH,r);
 }
 
