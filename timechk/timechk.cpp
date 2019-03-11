@@ -48,8 +48,8 @@ int now(void)
 	return lt.tm_hour * 60 + lt.tm_min;
 }
 
-// ファイル名（拡張子無し）を作成する
-void get_basename(char *path,const char *src)
+// INIファイル名を作成する
+void get_ini_name(char *path,const char *src)
 {
 	char *p, *s, *r = NULL;
 
@@ -61,6 +61,7 @@ void get_basename(char *path,const char *src)
 	}
 	*strchr(r, '.') = '\0';
 	strcpy_s(path, STR_LENGTH,r);
+	strcat_s(path, STR_LENGTH, ".ini");
 }
 
 // データ文字列からIP文字列を取得
@@ -170,8 +171,7 @@ int main(int argc, char** argv)
 
 	if (argc == 2) {
 		char path[STR_LENGTH];
-		get_basename(path, argv[0]);
-		strcat_s(path, STR_LENGTH, ".ini");
+		get_ini_name(path, argv[0]);
 		if (load_data(path)) {
 			fprintf(stderr, ERR_STRING, path);
 		}
