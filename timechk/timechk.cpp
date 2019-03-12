@@ -3,14 +3,28 @@
 #include <string.h>
 #include <time.h>
 
-#define STR_LENGTH 256
-#define DAT_LENGTH 100
+#define STR_LENGTH		256
+#define DAT_LENGTH		100
 
-#define ERR_STRING "エラー：iniファイルがありません。\n"
-#define USG_STRING "USAGE:timechk.exe <IP Address>\n"
+#define ERR_STRING		"エラー：iniファイルがありません。\n"
+#define USG_STRING		"USAGE:timechk.exe <IP Address>\n"
+
+#define MSG_STRING		"現在時刻 [%s] IP:%s の指定時間帯(%s-%s)です。\n"
+
+#define INI_TEMPLATE1	"#検索文字列     ,開始 ,終了 \n"
+#define INI_TEMPLATE2	"#xxx.xxx.xxx.xxx,HH:MM,HH:MM\n"
 
 // グローバル変数定義
 char Data[DAT_LENGTH][STR_LENGTH];
+
+// INIファイル名を作成する
+void get_ini_name(char *path, const char *src)
+{
+
+	strcpy_s(path, STR_LENGTH, src);
+	*strchr(path, '.') = '\0';
+	strcat_s(path, STR_LENGTH, ".ini");
+}
 
 // iniファイルを読み込む
 int load_data(char *path)
@@ -37,6 +51,19 @@ int load_data(char *path)
 	return 0;
 }
 
+// 空のiniファイルを作成する
+void make_ini_file(char *path)
+{
+	FILE *fp;
+	errno_t err;
+
+	err = fopen_s(&fp, path, "w");
+	if (err != 0) return;
+	fputs(INI_TEMPLATE1, fp);
+	fputs(INI_TEMPLATE2, fp);
+	fclose(fp);
+}
+
 // 現在時刻を分に変換して返す
 int now(void)
 {
@@ -46,31 +73,6 @@ int now(void)
 	t = time(NULL);
 	localtime_s(&lt, &t);
 	return lt.tm_hour * 60 + lt.tm_min;
-}
-
-// INIファイル名を作成する
-void get_ini_name(char *path,const char *src)
-{
-	char *p, *s, *r = NULL;
-
-	strcpy_s(path, STR_LENGTH, src);
-	s = strtok_s(path, "\\", &p);
-	while (s != NULL) {
-		r = s;
-		s = strtok_s(NULL, "\\", &p);
-	}
-	*strchr(r, '.') = '\0';
-	strcpy_s(path, STR_LENGTH,r);
-	strcat_s(path, STR_LENGTH, ".ini");
-}
-
-// データ文字列からIP文字列を取得
-void get_ip_address(char *str, char *data)
-{
-	char *p = NULL;
-
-	strcpy_s(str, STR_LENGTH, data);
-	strcpy_s(str, STR_LENGTH, strtok_s(str, ",", &p));
 }
 
 // 時刻文字列から分に変換
@@ -88,7 +90,7 @@ int str2min(char *str)
 }
 
 // 分から時刻文字列に変換
-void min2str(char *str,int min)
+void min2str(char *str, int min)
 {
 	char tmp[STR_LENGTH];
 
@@ -96,6 +98,15 @@ void min2str(char *str,int min)
 	sprintf_s(tmp, STR_LENGTH, "%02d", min % 60);
 	strcat_s(str, STR_LENGTH, ":");
 	strcat_s(str, STR_LENGTH, tmp);
+}
+
+// データ文字列から検索キー文字列を取得
+void get_key_str(char *str, char *data)
+{
+	char *p = NULL;
+
+	strcpy_s(str, STR_LENGTH, data);
+	strcpy_s(str, STR_LENGTH, strtok_s(str, ",", &p));
 }
 
 // データ文字列から開始時刻(分)を取得
@@ -126,18 +137,22 @@ int get_end_time(char *data)
 // IPをもとに時間のチェックを行う
 int chktime(char *ip)
 {
-	char tgt_ip[STR_LENGTH];
-	char msg[STR_LENGTH];
+	char snow[STR_LENGTH],tgt_key[STR_LENGTH], tgt_st[STR_LENGTH], tgt_et[STR_LENGTH];
 	int i = 0,now_min;
 
 	now_min = now();
-	msg[0] = '\0';
 	while (strlen(Data[i]) > 0) {
-		get_ip_address(tgt_ip, Data[i]);
-		if (strcmp(tgt_ip, ip) == 0) {
+		get_key_str(tgt_key, Data[i]);
+		if (strcmp(tgt_key, ip) == 0) {
 			int start_min = get_start_time(Data[i]);
 			int end_min = get_end_time(Data[i]);
-			if (now_min >= start_min && now_min <= end_min) return 1;
+			if (now_min >= start_min && now_min <= end_min) {
+				min2str(snow, now_min);
+				min2str(tgt_st, start_min);
+				min2str(tgt_et, end_min);
+				printf(MSG_STRING, snow,tgt_key,tgt_st,tgt_et);
+				return 1;
+			}
 		}
 		i++;
 	}
@@ -155,7 +170,7 @@ void debug_print(void)
 	printf("/////////////////////////////////\n\n");
 	while (strlen(Data[i]) > 0 && i < DAT_LENGTH) {
 		printf("Index:%03d-------------------\n",i);
-		get_ip_address(tmp, Data[i]);
+		get_key_str(tmp, Data[i]);
 		printf("IPアドレス：%s\n", tmp);
 		min2str(tmp, get_start_time(Data[i]));
 		printf("開始時刻　：%s\n", tmp);
@@ -170,25 +185,16 @@ void debug_print(void)
 int main(int argc, char** argv)
 {
 	int ret = 0;
+	char path[STR_LENGTH];
 
-	if (argc == 2) {
-		char path[STR_LENGTH];
-		get_ini_name(path, argv[0]);
-		if (load_data(path)) {
-			printf(ERR_STRING);
-		}
-		else {
-			//debug_print();
-			ret = chktime(argv[1]);
-			if (ret) {
-				char tmp[STR_LENGTH];
-				min2str(tmp, now());
-				printf("現在時刻: %s IP: %s の指定時間帯です。", tmp,argv[1]);
-			}
-		}
+	get_ini_name(path, argv[0]);
+	if (load_data(path)) {
+		printf(ERR_STRING);
+		make_ini_file(path);
 	}
 	else {
-		printf(USG_STRING);
+		if (argc == 2) ret = chktime(argv[1]);
+		else printf(USG_STRING);
 	}
 	return ret;
 }
