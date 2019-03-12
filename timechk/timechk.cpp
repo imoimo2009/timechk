@@ -134,23 +134,30 @@ int get_end_time(char *data)
 	return str2min(str);
 }
 
-// IPをもとに時間のチェックを行う
-int chktime(char *ip)
+void print_message(int now_min, char *key, int start_min, int end_min)
 {
-	char snow[STR_LENGTH],tgt_key[STR_LENGTH], tgt_st[STR_LENGTH], tgt_et[STR_LENGTH];
+	char snow[STR_LENGTH],  tgt_st[STR_LENGTH], tgt_et[STR_LENGTH];
+
+	min2str(snow, now_min);
+	min2str(tgt_st, start_min);
+	min2str(tgt_et, end_min);
+	printf(MSG_STRING, snow, key, tgt_st, tgt_et);
+}
+
+// IPをもとに時間のチェックを行う
+int chktime(char *key)
+{
+	char tgt_key[STR_LENGTH];
 	int i = 0,now_min;
 
 	now_min = now();
 	while (strlen(Data[i]) > 0) {
 		get_key_str(tgt_key, Data[i]);
-		if (strcmp(tgt_key, ip) == 0) {
+		if (strcmp(tgt_key, key) == 0) {
 			int start_min = get_start_time(Data[i]);
 			int end_min = get_end_time(Data[i]);
 			if (now_min >= start_min && now_min <= end_min) {
-				min2str(snow, now_min);
-				min2str(tgt_st, start_min);
-				min2str(tgt_et, end_min);
-				printf(MSG_STRING, snow,tgt_key,tgt_st,tgt_et);
+				print_message(now_min, tgt_key, start_min, end_min);
 				return 1;
 			}
 		}
@@ -193,8 +200,13 @@ int main(int argc, char** argv)
 		make_ini_file(path);
 	}
 	else {
-		if (argc == 2) ret = chktime(argv[1]);
-		else printf(USG_STRING);
+		if (argc == 2) {
+			// debug_print();
+			ret = chktime(argv[1]);
+		}
+		else {
+			printf(USG_STRING);
+		}
 	}
 	return ret;
 }
