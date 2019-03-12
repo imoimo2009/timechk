@@ -134,6 +134,7 @@ int get_end_time(char *data)
 	return str2min(str);
 }
 
+// メッセージ表示
 void print_message(int now_min, char *key, int start_min, int end_min)
 {
 	char snow[STR_LENGTH],  tgt_st[STR_LENGTH], tgt_et[STR_LENGTH];
