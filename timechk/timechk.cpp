@@ -7,12 +7,17 @@
 #define DAT_LENGTH		100
 
 #define ERR_STRING		"エラー：iniファイルがありません。\n"
-#define USG_STRING		"USAGE:timechk.exe <IP Address>\n"
+#define USG_STRING		"USAGE:timechk.exe [-q|-r|-d] <IP Address>\n"
 
-#define MSG_STRING		"現在時刻 [%s] IP:%s の指定時間帯(%s-%s)です。\n"
+#define MSG_STRING		"現在時刻 [%s] キー:%s の指定時間帯(%s-%s)です。\n"
 
 #define INI_TEMPLATE1	"#検索文字列     ,開始 ,終了 \n"
 #define INI_TEMPLATE2	"#xxx.xxx.xxx.xxx,HH:MM,HH:MM\n"
+
+#define OPT_HEAD		'-'
+#define OPT_DEBUG		'd'
+#define OPT_QUIET		'q'
+#define OPT_REVERSE		'r'
 
 // グローバル変数定義
 char Data[DAT_LENGTH][STR_LENGTH];
@@ -92,12 +97,7 @@ int str2min(char *str)
 // 分から時刻文字列に変換
 void min2str(char *str, int min)
 {
-	char tmp[STR_LENGTH];
-
-	sprintf_s(str, STR_LENGTH, "%02d", min / 60);
-	sprintf_s(tmp, STR_LENGTH, "%02d", min % 60);
-	strcat_s(str, STR_LENGTH, ":");
-	strcat_s(str, STR_LENGTH, tmp);
+	sprintf_s(str, STR_LENGTH, "%02d:%02d", min / 60,min % 60);
 }
 
 // データ文字列から検索キー文字列を取得
@@ -137,16 +137,31 @@ int get_end_time(char *data)
 // メッセージ表示
 void print_message(int now_min, char *key, int start_min, int end_min)
 {
-	char snow[STR_LENGTH],  tgt_st[STR_LENGTH], tgt_et[STR_LENGTH];
+	char now_str[STR_LENGTH],  tgt_st[STR_LENGTH], tgt_et[STR_LENGTH];
 
-	min2str(snow, now_min);
+	min2str(now_str, now_min);
 	min2str(tgt_st, start_min);
 	min2str(tgt_et, end_min);
-	printf(MSG_STRING, snow, key, tgt_st, tgt_et);
+	printf(MSG_STRING, now_str, key, tgt_st, tgt_et);
 }
 
-// IPをもとに時間のチェックを行う
-int chktime(char *key)
+// 文字列中に指定の文字列があったらその位置を返す
+int in_str(const char *str, const char *key)
+{
+	char *p;
+	int l;
+
+	p = (char*)str;
+	l = strlen(key) - 1;
+	while (*(p + l) != '\0') {
+		if(strncmp(p,key,l) == 0) return (p - str + 1);
+		p++;
+	}
+	return 0;
+}
+
+// 文字列をもとに時間のチェックを行う
+int chktime(char *str,int opt_q)
 {
 	char tgt_key[STR_LENGTH];
 	int i = 0,now_min;
@@ -154,11 +169,11 @@ int chktime(char *key)
 	now_min = now();
 	while (strlen(Data[i]) > 0) {
 		get_key_str(tgt_key, Data[i]);
-		if (strcmp(tgt_key, key) == 0) {
+		if (in_str(str, tgt_key) > 0) {
 			int start_min = get_start_time(Data[i]);
 			int end_min = get_end_time(Data[i]);
 			if (now_min >= start_min && now_min <= end_min) {
-				print_message(now_min, tgt_key, start_min, end_min);
+				if(!opt_q) print_message(now_min, tgt_key, start_min, end_min);
 				return 1;
 			}
 		}
@@ -192,7 +207,7 @@ void debug_print(void)
 // エントリポイント
 int main(int argc, char** argv)
 {
-	int ret = 0;
+	int ret = 0,opt_q = 0,opt_d = 0,opt_r = 0,key_idx = 0;
 	char path[STR_LENGTH];
 
 	get_ini_name(path, argv[0]);
@@ -202,12 +217,37 @@ int main(int argc, char** argv)
 	}
 	else {
 		if (argc == 2) {
-			// debug_print();
-			ret = chktime(argv[1]);
+			key_idx = 1;
 		}
-		else {
+		else if(argc > 2){
+			for (int i = 1; i < argc; i++) {
+				if (argv[i][0] == '-') {
+					for (int j = 1; j < strlen(argv[i]); j++) {
+						switch (argv[i][j]) {
+						case OPT_DEBUG:
+							opt_d = 1;
+							break;
+						case OPT_QUIET:
+							opt_q = 1;
+							break;
+						case OPT_REVERSE:
+							opt_r = 1;
+							break;
+						}
+					}
+				}
+				else {
+					key_idx = i;
+				}
+			}
+		}
+		if(key_idx == 0) {
 			printf(USG_STRING);
 		}
+		else {
+			if (opt_d) debug_print();
+			ret = chktime(argv[key_idx],opt_q);
+		}
 	}
-	return ret;
+	return (ret - (1 - opt_r));
 }
